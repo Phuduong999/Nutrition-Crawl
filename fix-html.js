@@ -23,7 +23,43 @@ if (!latestCssFile) {
 let htmlContent = fs.readFileSync(popupHtmlPath, 'utf8');
 
 // Thêm link CSS và sửa đường dẫn JS
-htmlContent = htmlContent.replace('</head>', `  <link rel="stylesheet" href="./assets/${latestCssFile}" />\n  <style>\n    body {\n      width: 400px;\n      height: 400px;\n      margin: 0;\n      padding: 0;\n      overflow: hidden;\n    }\n    :root {\n      --app-max-width: 390px;\n      --app-padding: 8px;\n    }\n  </style>\n</head>`);
+htmlContent = htmlContent.replace('</head>', `  <link rel="stylesheet" href="./assets/${latestCssFile}" />
+  <style>
+    body {
+      width: 400px;
+      height: calc(100vh - 20px);
+      max-height: 480px;
+      min-height: 400px;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background-color: white;
+    }
+    :root {
+      --app-max-width: min(400px, 100%);
+      --app-padding: 8px;
+    }
+    /* Tối ưu cho màn hình MacBook 13 inch */
+    @media screen and (max-height: 800px) {
+      body {
+        height: calc(100vh - 10px);
+        min-height: 380px;
+      }
+      .mantine-ScrollArea-root {
+        max-height: calc(100vh - 120px) !important;
+      }
+    }
+    /* Đảm bảo ScrollArea có chiều cao phù hợp */
+    .mantine-ScrollArea-root {
+      max-height: 380px;
+    }
+    /* Đảm bảo container có kích thước linh hoạt */
+    .mantine-Container-root {
+      max-width: min(400px, 100%) !important;
+      background-color: white !important;
+    }
+  </style>
+</head>`);
 
 // Sửa đường dẫn JS
 htmlContent = htmlContent.replace('src="/src/main.tsx"', 'src="./popup.js"');

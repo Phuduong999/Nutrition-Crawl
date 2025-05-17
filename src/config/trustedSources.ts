@@ -12,6 +12,8 @@ export interface NutritionData {
     calcium: number | null;
     iron: number | null;
     amount_per: string | null;
+    // Index signature cho phép truy cập động
+    [key: string]: number | string | null;
 }
 
 export interface SiteConfig {

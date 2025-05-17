@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "build:extension": "tsc -b && vite build && cp public/manifest.json dist/",
+    "build:extension": "tsc -b && vite build && copy public\\manifest.json dist\\ && node fix-html.js",
+    "fix-html": "node fix-html.js",
     "lint": "eslint .",
     "preview": "vite preview"
   },
@@ -14,6 +15,8 @@
     "@emotion/react": "^11.14.0",
     "@mantine/core": "^8.0.1",
     "@mantine/hooks": "^8.0.1",
+    "@mantine/notifications": "^8.0.1",
+    "@tabler/icons-react": "^3.33.0",
     "@types/chrome": "^0.0.322",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"

@@ -29,12 +29,12 @@ const NutritionTable: React.FC<NutritionTableProps> = ({ data, previewData }) =>
             </div>
           </Group>
         </Table.Td>
-        <Table.Td style={{ padding: '6px 4px', textAlign: 'right', minWidth: '85px' }}>
+        <Table.Td style={{ padding: '6px 4px', textAlign: 'right', width: '80px', maxWidth: '80px' }}>
           <Group justify="flex-end" gap={2} wrap="nowrap">
             {isValueMeaningful(value) ? (
               <>
-                <Text fw={600} size="sm" truncate style={{ maxWidth: '70px' }}>{value.toString()}</Text>
-                <Text size="xs" c="dimmed" style={{ width: '15px', textAlign: 'left' }}>{getNutritionUnit(key)}</Text>
+                <Text fw={600} size="sm" truncate style={{ maxWidth: '60px' }}>{value.toString()}</Text>
+                <Text size="xs" c="dimmed" style={{ width: '14px', textAlign: 'left' }}>{getNutritionUnit(key)}</Text>
               </>
             ) : (
               <Text c="dimmed" size="xs" fs="italic">Không có</Text>

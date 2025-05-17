@@ -14,8 +14,8 @@ const PreviewTab: React.FC<PreviewTabProps> = ({ previewData }) => {
   if (!previewData) return null;
   
   return (
-    <ScrollArea h={350} type="auto" offsetScrollbars overscrollBehavior="contain" scrollbarSize={6} scrollHideDelay={2500}>
-      <Box>
+    <ScrollArea h={350} type="auto" scrollbarSize={6} scrollHideDelay={2500}>
+      <Box style={{ padding: '0 4px' }}>
         <Card withBorder mb="md" p="sm" style={{ backgroundColor: '#F9FAFB' }}>
           <Group gap="sm" mb="xs">
             <ThemeIcon color="blue" variant="light" size="md" radius="xl">
@@ -40,7 +40,7 @@ const PreviewTab: React.FC<PreviewTabProps> = ({ previewData }) => {
               </Badge>
             </Group>
           </Box>
-          <ScrollArea type="auto" scrollbarSize={6} scrollHideDelay={2500} offsetScrollbars>
+          <ScrollArea h={220} type="auto" scrollbarSize={6} scrollHideDelay={2500}>
             <NutritionTable data={previewData.data} previewData={previewData} />
           </ScrollArea>
         </Card>

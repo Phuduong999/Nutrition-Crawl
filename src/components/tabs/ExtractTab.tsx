@@ -19,8 +19,8 @@ const ExtractTab: React.FC<ExtractTabProps> = ({
   setActiveTab
 }) => {
   return (
-    <ScrollArea h={350} type="auto" offsetScrollbars overscrollBehavior="contain" scrollbarSize={6} scrollHideDelay={2500}>
-      <Box>
+    <ScrollArea h={350} type="auto" scrollbarSize={6} scrollHideDelay={2500}>
+      <Box style={{ padding: '0 4px' }}>
         <Text size="sm" c="dimmed" mb="md" ta="center">
           Nhấn nút bên dưới để trích xuất dữ liệu dinh dưỡng từ trang web hiện tại.
         </Text>

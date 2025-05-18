@@ -3,7 +3,8 @@
  */
 
 import type { NutritionExtractor, ExtractionResult, ExtractionSourceMap } from '../types';
-import { evaluateXPath, getCurrentDomain, logger, highlightElement } from '../utils';
+import { getCurrentDomain, logger, highlightElement } from '../utils';
+import { evaluateAndLogXPath, XPathLogStorage } from '../xpathLogger';
 import { SchemaOrgExtractor } from '../extractors/schema-org-extractor';
 import { HtmlExtractor } from '../extractors/html-extractor';
 import { trustedSources } from '../../config/trustedSources';
@@ -110,13 +111,27 @@ export class NutritionExtractionService {
    * @returns The nutrition element or null if not found
    */
   private findNutritionElement(siteConfig: any): Element | null {
-    // Try primary XPath
-    let nutritionElement = evaluateXPath(siteConfig.nutritionXPath);
+    // Try primary XPath and log results
+    const primaryResult = evaluateAndLogXPath(siteConfig.nutritionXPath, 'nutritionXPath');
+    XPathLogStorage.addLog(primaryResult.logResult);
+    let nutritionElement = primaryResult.element;
 
     // Try alternative XPath if available and primary failed
     if (!nutritionElement && siteConfig.altXPath) {
-      nutritionElement = evaluateXPath(siteConfig.altXPath);
+      const altResult = evaluateAndLogXPath(siteConfig.altXPath, 'altXPath');
+      XPathLogStorage.addLog(altResult.logResult);
+      nutritionElement = altResult.element;
     }
+
+    // Log summary of XPath evaluation
+    logger.info(`XPath Evaluation Summary:`, {
+      url: window.location.href,
+      domain: getCurrentDomain(),
+      primaryXPathMatches: primaryResult.logResult.matchCount,
+      altXPathMatches: siteConfig.altXPath ? 
+        (nutritionElement && !primaryResult.element ? primaryResult.logResult.matchCount : 0) : 
+        'No altXPath defined'
+    });
 
     return nutritionElement;
   }

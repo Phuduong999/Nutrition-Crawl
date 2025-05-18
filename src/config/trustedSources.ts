@@ -43,6 +43,6 @@ export const trustedSources: Record<string, SiteConfig> = {
     },
     "nutritionix.com": {
         nutritionXPath: '//*[@class="label-container"]',
-        altXPath: '//*[contains(@id, "accordion") and contains(@id, "-content")]'
+        altXPath: '//div[@class="nf"]'
     }
 };

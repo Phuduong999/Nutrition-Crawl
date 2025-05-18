@@ -17,7 +17,7 @@ const SourceElementCard: React.FC<SourceElementCardProps> = ({ nutritionKey, inf
     : 'Không có nội dung văn bản';
     
   return (
-    <Paper p="xs" withBorder shadow="xs" style={{ borderColor: '#FEEBC8', backgroundColor: 'white' }}>
+    <Paper p="xs" mt={20} withBorder shadow="xs" style={{ borderColor: '#FEEBC8', backgroundColor: 'white' }}>
       <Group>
         <ThemeIcon color="yellow" variant="light" size="sm" radius="xl">
           {getNutritionIcon(nutritionKey)}
@@ -25,7 +25,8 @@ const SourceElementCard: React.FC<SourceElementCardProps> = ({ nutritionKey, inf
         <Badge color="yellow" variant="light" radius="sm">{nutritionKey}</Badge>
         <Text size="xs" c="dimmed">{info.tagName}</Text>
       </Group>
-      <Text size="sm" mt="xs" style={{ backgroundColor: 'rgba(255, 247, 214, 0.5)', padding: '4px', borderRadius: '4px' }}>
+
+      <Text size="sm" mt="xs" mb={20} style={{ backgroundColor: 'rgba(255, 247, 214, 0.5)', padding: '4px', borderRadius: '4px' }}>
         {displayedText}
       </Text>
     </Paper>

@@ -1,14 +1,19 @@
-  import { useState } from 'react';
+import { useState } from 'react';
 import { 
   MantineProvider, Container, Stack, Group, Tabs, rem, ThemeIcon, Title
 } from '@mantine/core';
-import { IconSalad, IconChartBar, IconChevronRight } from '@tabler/icons-react';
+import { 
+  IconSalad, IconChartBar, IconChevronRight, IconTable, IconList
+} from '@tabler/icons-react';
 import '@mantine/notifications/styles.css';
 import '@mantine/core/styles.css';
+import '@mantine/dropzone/styles.css';
 
 // Import custom components
 import ExtractTab from './components/tabs/ExtractTab';
 import PreviewTab from './components/tabs/PreviewTab';
+import BatchImportTab from './components/tabs/BatchImportTab';
+import LogTab from './components/tabs/LogTab';
 
 // Import hooks
 import { useNutritionExtractor } from './hooks/useNutritionExtractor';
@@ -83,6 +88,18 @@ function App() {
               >
                 Xem chi tiết
               </Tabs.Tab>
+              <Tabs.Tab 
+                value="batch" 
+                leftSection={<IconTable style={{ width: rem(16), height: rem(16) }} />}
+              >
+                Nhập hàng loạt
+              </Tabs.Tab>
+              <Tabs.Tab 
+                value="log" 
+                leftSection={<IconList style={{ width: rem(16), height: rem(16) }} />}
+              >
+                Log
+              </Tabs.Tab>
             </Tabs.List>
 
             <Tabs.Panel value="extract" style={{ flex: 1, paddingRight: '4px' }}>
@@ -97,6 +114,14 @@ function App() {
 
             <Tabs.Panel value="preview" style={{ flex: 1, paddingRight: '4px' }}>
               <PreviewTab previewData={previewData} />
+            </Tabs.Panel>
+            
+            <Tabs.Panel value="batch" style={{ flex: 1, paddingRight: '4px' }}>
+              <BatchImportTab setActiveTab={setActiveTab} />
+            </Tabs.Panel>
+            
+            <Tabs.Panel value="log" style={{ flex: 1, paddingRight: '4px' }}>
+              <LogTab setActiveTab={setActiveTab} />
             </Tabs.Panel>
           </Tabs>
         </Stack>

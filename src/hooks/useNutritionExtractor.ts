@@ -2,6 +2,19 @@ import { useState, useEffect } from 'react';
 import type { NutritionData, NutritionPreview } from '../types';
 import { showSuccessNotification, showErrorNotification } from '../components/common/NotificationService';
 
+// Định nghĩa interface cho response từ content script
+interface ExtractNutritionResponse {
+  success: boolean;
+  error?: string;
+  data?: NutritionData;
+}
+
+// Định nghĩa interface cho response từ injectContentScript
+interface InjectContentScriptResponse {
+  success: boolean;
+  error?: string;
+}
+
 export const useNutritionExtractor = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,18 +41,92 @@ export const useNutritionExtractor = () => {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
       if (!tab?.id) {
-        throw new Error('No active tab found');
+        throw new Error('Không tìm thấy tab đang mở');
+      }
+      
+      // Yêu cầu background script inject content script khi người dùng nhấn nút
+      console.log('Yêu cầu inject content script...');
+      
+      // Kiểm tra content script trước khi gọi
+      // Nếu content script chưa được tải, thử inject
+      const injectResponse = await new Promise<InjectContentScriptResponse>((resolve) => {
+        chrome.runtime.sendMessage(
+          { action: 'injectContentScript', tabId: tab.id },
+          (response) => {
+            // Kiểm tra lỗi kết nối
+            if (chrome.runtime.lastError) {
+              console.warn('Lỗi kết nối:', chrome.runtime.lastError.message);
+              resolve({ success: false, error: chrome.runtime.lastError.message });
+              return;
+            }
+            resolve(response || { success: false, error: 'Không nhận được phản hồi' });
+          }
+        );
+      });
+      
+      console.log('Kết quả inject:', injectResponse);
+      
+      // Nếu không inject được content script, báo lỗi
+      if (!injectResponse || !injectResponse.success) {
+        const errMsg = injectResponse?.error || 'Không thể inject content script';
+        throw new Error(errMsg);
       }
 
       console.log('Sending message to content script...');
-      const response = await chrome.tabs.sendMessage(tab.id, { action: 'extractNutrition' });
+      
+      // Thêm retry logic khi gọi content script
+      let retries = 0;
+      const maxRetries = 3;
+      let response = null;
+      
+      while (retries < maxRetries) {
+        try {
+          response = await new Promise<ExtractNutritionResponse>((resolve, reject) => {
+            chrome.tabs.sendMessage(tab.id!, { action: 'extractNutrition' }, (result) => {
+              if (chrome.runtime.lastError) {
+                reject(new Error(chrome.runtime.lastError.message));
+                return;
+              }
+              resolve(result);
+            });
+            
+            // Đặt timeout để tránh chờ vô hạn
+            setTimeout(() => {
+              reject(new Error('Kết nối với content script hết hạn'));
+            }, 3000);
+          });
+          
+          // Nếu kết nối thành công, thoát khỏi vòng lặp
+          break;
+        } catch (err) {
+          console.warn(`Lần thử ${retries + 1}/${maxRetries} thất bại:`, err);
+          retries++;
+          
+          // Thử inject lại content script nếu lỗi kết nối
+          if (retries < maxRetries) {
+            console.log('Thử lại sau 500ms...');
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // Yêu cầu inject lại
+            await new Promise<void>(resolve => {
+              chrome.runtime.sendMessage(
+                { action: 'injectContentScript', tabId: tab.id },
+                () => resolve()
+              );
+            });
+          } else {
+            throw new Error('Không thể kết nối với content script sau nhiều lần thử. Hãy tải lại trang.');
+          }
+        }
+      }
+      
       console.log('Received response:', response);
 
       if (!response?.success || !response?.data) {
         throw new Error('Failed to extract nutrition data');
       }
 
-      setData(response.data);
+      setData(response.data as NutritionData);
 
       // Tải lại dữ liệu bôi vàng từ storage
       chrome.storage.local.get(['nutritionPreview'], (result) => {
@@ -50,7 +137,7 @@ export const useNutritionExtractor = () => {
       });
 
       // Create and download JSON file
-      const json = JSON.stringify(response.data, null, 2);
+      const json = JSON.stringify(response.data as NutritionData, null, 2);
       const blob = new Blob([json], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const domain = new URL(tab.url || '').hostname.replace('www.', '');

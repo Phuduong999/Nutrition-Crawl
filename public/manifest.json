@@ -7,7 +7,8 @@
         "activeTab",
         "scripting",
         "downloads",
-        "storage"
+        "storage",
+        "tabs"
     ],
     "host_permissions": [
         "*://*/*"
@@ -31,12 +32,20 @@
             ],
             "js": [
                 "content.js"
-            ]
+            ],
+            "run_at": "document_idle",
+            "all_frames": true
         }
     ],
     "icons": {
         "16": "icon16.svg",
         "48": "icon48.svg",
         "128": "icon128.svg"
-    }
+    },
+    "web_accessible_resources": [
+        {
+            "resources": ["content.js"],
+            "matches": ["<all_urls>"]
+        }
+    ]
 }

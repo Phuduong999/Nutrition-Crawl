@@ -32,6 +32,7 @@ export class NutritionExtractionService {
    * @returns Extracted nutrition data or null if not found
    */
   public extractNutritionInfo(highlight: boolean = false): ExtractionResult {
+    // Xử lý dùng XPath mặc định
     const domain = getCurrentDomain();
     const siteConfig = trustedSources[domain];
 
@@ -72,6 +73,111 @@ export class NutritionExtractionService {
     }
 
     logger.error('All extractors failed to extract nutrition data');
+    return { data: null, sourceMap: {} };
+  }
+  
+  /**
+   * Phương thức chỉ bôi vàng phần tử mà không trích xuất dữ liệu
+   * @returns Số lượng phần tử đã bôi vàng
+   */
+  public highlightElements(): number {
+    const domain = getCurrentDomain();
+    const siteConfig = trustedSources[domain];
+    
+    if (!siteConfig) {
+      logger.error('This website is not supported for direct highlighting');
+      return 0;
+    }
+    
+    // Tìm phần tử chứa thông tin dinh dưỡng
+    const nutritionElement = this.findNutritionElement(siteConfig);
+    if (!nutritionElement) {
+      logger.error('Could not find nutrition information on this page for highlighting');
+      return 0;
+    }
+    
+    // Bôi vàng phần tử chứa thông tin dinh dưỡng
+    highlightElement(nutritionElement, 'Nutrition Data Container');
+    
+    // Thử trích xuất và bôi vàng các phần tử con
+    let highlightCount = 1; // Tính cả container
+    
+    for (const extractor of this.extractors) {
+      if (extractor.canExtract(nutritionElement)) {
+        const extractionResult = extractor.extract(nutritionElement); // Thử trích xuất
+        if (extractionResult.data && extractionResult.sourceMap) {
+          this.highlightExtractedElements(extractionResult.sourceMap);
+          highlightCount += Object.keys(extractionResult.sourceMap).filter(
+            key => extractionResult.sourceMap[key] !== null
+          ).length;
+          break; // Dừng sau khi tìm thấy extractor đầu tiên phù hợp
+        }
+      }
+    }
+    
+    return highlightCount;
+  }
+  
+  /**
+   * Trích xuất dữ liệu từ nguồn tin cậy cụ thể
+   * @param sourceName Tên của nguồn tin cậy (domain)
+   * @returns Kết quả trích xuất
+   */
+  public extractFromTrustedSource(sourceName: string): ExtractionResult {
+    const siteConfig = trustedSources[sourceName];
+    if (!siteConfig) {
+      logger.error(`Source ${sourceName} not found in trusted sources`);
+      return { data: null, sourceMap: {} };
+    }
+    
+    // Sử dụng XPath từ nguồn tin cậy được chỉ định
+    const xpath = siteConfig.nutritionXPath;
+    if (!xpath) {
+      logger.error(`No XPath defined for ${sourceName}`);
+      return { data: null, sourceMap: {} };
+    }
+    
+    // Tìm phần tử chứa thông tin dinh dưỡng
+    let nutritionElement: Element | null = null;
+    try {
+      const result = evaluateAndLogXPath(xpath);
+      nutritionElement = result.element;
+      
+      if (!nutritionElement && siteConfig.altXPath) {
+        // Thử XPath thay thế nếu có
+        const altResult = evaluateAndLogXPath(siteConfig.altXPath);
+        nutritionElement = altResult.element;
+      }
+    } catch (error) {
+      logger.error(`Error evaluating XPath for ${sourceName}`, error);
+    }
+    
+    if (!nutritionElement) {
+      logger.error(`Could not find nutrition element using XPath for ${sourceName}`);
+      return { data: null, sourceMap: {} };
+    }
+    
+    // Bôi vàng phần tử chứa thông tin dinh dưỡng
+    highlightElement(nutritionElement, `Nutrition Data (${sourceName})`);
+    
+    // Thử trích xuất với từng extractor
+    for (const extractor of this.extractors) {
+      if (extractor.canExtract(nutritionElement)) {
+        const extractionResult = extractor.extract(nutritionElement);
+        if (extractionResult.data) {
+          logger.info(`Successfully extracted nutrition data from ${sourceName} using extractor`, {
+            extractor: extractor.constructor.name
+          });
+          
+          // Bôi vàng các phần tử đã được trích xuất
+          this.highlightExtractedElements(extractionResult.sourceMap);
+          
+          return extractionResult;
+        }
+      }
+    }
+    
+    logger.error(`All extractors failed to extract nutrition data from ${sourceName}`);
     return { data: null, sourceMap: {} };
   }
   

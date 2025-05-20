@@ -31,21 +31,32 @@ export const EXTRACTION_CONSTANTS = {
 };
 
 /**
- * Extract number from text by finding the first numeric value
+ * Extract number from text by finding the numeric value in grams or milligrams, avoiding % values
  * @param text The text to extract number from
  * @returns The extracted number or null if no valid number found
  */
 export function extractNumberFromText(text: string): number | null {
   if (!text) return null;
   
-  // Tìm số đầu tiên trong chuỗi (14g hoặc 14.5g)
-  const match = text.match(/\b(\d+(\.\d+)?)\s*[a-zA-Z%]*/i);
-  if (match && match[1]) {
-    const value = parseFloat(match[1]);
+  // Ưu tiên lấy giá trị g/mg trước (giá trị thực tế)
+  const gramMatch = text.match(/\b(\d+(\.\d+)?)\s*(g|mg|gram|grams|milligrams?)/i);
+  if (gramMatch && gramMatch[1]) {
+    const value = parseFloat(gramMatch[1]);
+    // Đổi mg sang g nếu cần (1mg = 0.001g)
+    if (gramMatch[3]?.toLowerCase().startsWith('m')) {
+      return isNaN(value) ? null : value / 1000;
+    }
     return isNaN(value) ? null : value;
   }
   
-  // Nếu cách trên không hoạt động, thử phương pháp cũ nhưng chỉ lấy số đầu tiên
+  // Tìm số không có ký hiệu % ở sau (tránh lấy giá trị phần trăm)
+  const noPercentMatch = text.match(/\b(\d+(\.\d+)?)(?!\s*%|\s*percent)\s*[a-zA-Z]*/i);
+  if (noPercentMatch && noPercentMatch[1]) {
+    const value = parseFloat(noPercentMatch[1]);
+    return isNaN(value) ? null : value;
+  }
+  
+  // Nếu bỏ qua tất cả các trường hợp trên, dùng phương pháp cuối cùng nhưng chỉ lấy số đầu tiên
   const cleanText = text.replace(EXTRACTION_CONSTANTS.NUMBER_REGEX, ' ').trim().split(/\s+/)[0];
   const value = parseFloat(cleanText);
   return isNaN(value) ? null : value;

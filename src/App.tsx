@@ -60,9 +60,9 @@ function App() {
         }
       }
     }}>
-      <Container p="xs" size="xs" style={{ maxWidth: '390px', width: '100%', backgroundColor: 'white' }}>
+      <Container p={10} size="xs" style={{ maxWidth: '400px', width: '100%', backgroundColor: 'white' }}>
         {/* Sử dụng chiều cao auto để tránh khoảng trắng */}
-        <div style={{ flex: '1 1 auto', display: 'flex', flexDirection: 'column', backgroundColor: 'white', minHeight: '0', overflow: 'auto' }}>
+        <div style={{ flex: '1 1 auto', display: 'flex', flexDirection: 'column', backgroundColor: 'white', minHeight: '0', overflow: 'hidden' }}>
         <Stack gap="md" style={{ flex: '0 0 auto' }}>
           <Group justify="center">
             <ThemeIcon size="lg" color="teal" variant="light" radius="xl">
@@ -73,7 +73,7 @@ function App() {
             </Title>
           </Group>
           
-          <Tabs value={activeTab} onChange={setActiveTab} variant="pills" style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+          <Tabs value={activeTab} onChange={setActiveTab} variant="pills" style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
             <Tabs.List grow style={{ marginBottom: '12px' }}>
               <Tabs.Tab 
                 value="extract" 
@@ -102,7 +102,7 @@ function App() {
               </Tabs.Tab>
             </Tabs.List>
 
-            <Tabs.Panel value="extract" style={{ flex: 1, paddingRight: '4px' }}>
+            <Tabs.Panel value="extract" style={{ flex: 1, paddingRight: '4px', overflow: 'hidden' }}>
               <ExtractTab 
                 loading={loading}
                 error={error}
@@ -112,15 +112,15 @@ function App() {
               />
             </Tabs.Panel>
 
-            <Tabs.Panel value="preview" style={{ flex: 1, paddingRight: '4px' }}>
+            <Tabs.Panel value="preview" style={{ flex: 1, paddingRight: '4px', overflow: 'hidden' }}>
               <PreviewTab previewData={previewData} />
             </Tabs.Panel>
             
-            <Tabs.Panel value="batch" style={{ flex: 1, paddingRight: '4px' }}>
+            <Tabs.Panel value="batch" style={{ flex: 1, paddingRight: '4px', overflow: 'hidden' }}>
               <BatchImportTab setActiveTab={setActiveTab} />
             </Tabs.Panel>
             
-            <Tabs.Panel value="log" style={{ flex: 1, paddingRight: '4px' }}>
+            <Tabs.Panel value="log" style={{ flex: 1, paddingRight: '4px', overflow: 'hidden' }}>
               <LogTab setActiveTab={setActiveTab} />
             </Tabs.Panel>
           </Tabs>

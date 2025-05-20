@@ -22,33 +22,17 @@ const checkContentScriptStatus = async (tabId: number): Promise<boolean> => {
     }
 };
 
-// Kiểm tra nếu tab có hỗ trợ content script
-const isTabSupported = async (tabId: number): Promise<boolean> => {
-    try {
-        const tab = await chrome.tabs.get(tabId);
-        const url = tab.url || '';
-        
-        // Kiểm tra nếu URL là HTTP/HTTPS và không phải là chrome:// hoặc chrome-extension://
-        return url.startsWith('http') && 
-               !url.startsWith('chrome://') && 
-               !url.startsWith('chrome-extension://') &&
-               !url.startsWith('about:');
-    } catch (error) {
-        console.error('Lỗi kiểm tra tab:', error);
-        return false;
-    }
-};
-
 // Thiết lập marker trên trang
 const setContentScriptLoadedMarker = async (tabId: number): Promise<boolean> => {
     try {
-        await chrome.scripting.executeScript({
+        const results = await chrome.scripting.executeScript({
             target: { tabId },
             func: () => {
                 document.documentElement.setAttribute('data-nutrition-crawl-loaded', 'true');
+                return true;
             }
         });
-        return true;
+        return results[0]?.result === true;
     } catch (error) {
         console.error('Lỗi thiết lập marker:', error);
         return false;
@@ -59,40 +43,30 @@ const setContentScriptLoadedMarker = async (tabId: number): Promise<boolean> => 
 interface TabInfo {
     tabId: number;
     url: string;
-    lastActivity: number; // timestamp
-    confirmed: boolean;   // đã được xác nhận là thực sự hoạt động
+    lastActivity: number;
+    confirmed: boolean;
 }
 
 const contentScriptTabs = new Map<number, TabInfo>();
 
 // Hàm xóa các tab không hoạt động quá lâu (30 giây không có keepAlive)
-function cleanupInactiveTabs() {
+const cleanupInactiveTabs = () => {
     const now = Date.now();
-    const maxInactivityTime = 30000; // 30 giây
+    const expireTime = 30000; // 30 giây
     
-    for (const [tabId, tabInfo] of contentScriptTabs.entries()) {
-        if (now - tabInfo.lastActivity > maxInactivityTime) {
-            console.log(`Tab ${tabId} không hoạt động trong ${maxInactivityTime/1000}s, xóa khỏi danh sách`);
+    contentScriptTabs.forEach((info, tabId) => {
+        if (now - info.lastActivity > expireTime) {
+            console.log(`Tab ${tabId} không hoạt động quá lâu, xóa khỏi danh sách`);
             contentScriptTabs.delete(tabId);
             injectedTabs.delete(tabId);
         }
-    }
-}
+    });
+};
 
 // Thực hiện dọn dẹp tabs không hoạt động mỗi 30 giây
 setInterval(cleanupInactiveTabs, 30000);
 
-// Xử lý yêu cầu inject content script từ popup hoặc hotkey
-// Thêm lắng nghe cho chrome.runtime.onInstalled
-chrome.runtime.onInstalled.addListener(() => {
-    console.log('Extension installed or updated!');
-    
-    // Xóa dữ liệu cũ khi cài đặt hoặc cập nhật
-    contentScriptTabs.clear();
-    injectedTabs.clear();
-});
-
-// Thêm lắng nghe cho tab update/active để đảm bảo tabs trong injectedTabs list vẫn còn hợp lệ
+// Xử lý khi tab bị đóng
 chrome.tabs.onRemoved.addListener((tabId) => {
     if (injectedTabs.has(tabId)) {
         console.log(`Tab ${tabId} đã được đóng, xóa khỏi danh sách inject`);
@@ -105,12 +79,13 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     if (changeInfo.status === 'complete' && injectedTabs.has(tabId)) {
         if (tab.url && tab.url.startsWith('http')) {
-            // Giữ nguyên tab trong danh sách injected nhưng gắn cờ confirmed = false
-            // cho đến khi nhận được thông báo mới từ content script
+            console.log(`Tab ${tabId} đã được tải lại, cập nhật URL: ${tab.url}`);
+            
+            // Cập nhật thông tin trong contentScriptTabs
             if (contentScriptTabs.has(tabId)) {
                 const tabInfo = contentScriptTabs.get(tabId)!;
-                tabInfo.confirmed = false;
                 tabInfo.url = tab.url;
+                tabInfo.confirmed = false; // Đặt thành false và chờ xác nhận mới từ content script
                 contentScriptTabs.set(tabId, tabInfo);
             }
         } else {
@@ -121,187 +96,252 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     }
 });
 
-// Thêm lắng nghe cho chrome.runtime.onConnect
-chrome.runtime.onConnect.addListener((port) => {
-    console.log('Port connected:', port.name);
-    
-    port.onDisconnect.addListener(() => {
-        console.log('Port disconnected:', port.name);
-    });
-    
-    port.onMessage.addListener((message) => {
-        console.log('Message received via port:', message);
-    });
-});
-
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    // Xử lý tin nhắn ping từ content script
-    if (request.action === 'ping') {
-        sendResponse({ success: true, timestamp: Date.now() });
-        return true;
-    }
-    
-    // Xử lý tin nhắn keepAlive từ content script
-    if (request.action === 'keepAlive') {
-        if (sender.tab?.id) {
-            const tabId = sender.tab.id;
-            const url = sender.tab.url || request.url || '';
-            
-            // Cập nhật thời gian hoạt động mới nhất của tab
-            if (contentScriptTabs.has(tabId)) {
-                const tabInfo = contentScriptTabs.get(tabId)!;
-                tabInfo.lastActivity = Date.now();
-                tabInfo.url = url;
-                contentScriptTabs.set(tabId, tabInfo);
-            } else {
-                // Nếu tab chưa có trong danh sách, thêm vào
-                contentScriptTabs.set(tabId, {
-                    tabId, 
-                    url, 
-                    lastActivity: Date.now(), 
-                    confirmed: true
-                });
-                injectedTabs.add(tabId);
-            }
-        }
-        sendResponse({ success: true });
-        return true;
-    }
-    
-    // Xử lý tin nhắn thông báo content script đã được tải
-    if (request.action === 'content_script_loaded') {
-        if (sender.tab?.id) {
-            const tabId = sender.tab.id;
-            const url = sender.tab.url || request.url || '';
-            
-            console.log(`Content script đã được tải vào tab ${tabId}: ${url}`);
-            
-            // Thêm tab vào danh sách các tab đã có content script
-            contentScriptTabs.set(tabId, {
-                tabId, 
-                url, 
-                lastActivity: Date.now(), 
-                confirmed: true
-            });
-            injectedTabs.add(tabId);
-        }
-        sendResponse({ success: true });
-        return true;
-    }
-    
-    // Xử lý yêu cầu inject content script
-    if (request.action === 'injectContentScript') {
-        const tabId = request.tabId;
+// Hàm thực hiện inject content script và theo dõi kết quả
+const executeContentScriptInject = async (tabId: number, sendResponse: (response: any) => void) => {
+    try {
+        console.log(`Đang inject content script vào tab ${tabId}...`);
         
-        if (!tabId) {
-            sendResponse({ success: false, error: 'Không có tabId được cung cấp' });
-            return true;
-        }
+        // Xóa tab khỏi danh sách các tab đã inject (nếu có)
+        injectedTabs.delete(tabId);
         
-        // Kiểm tra nếu tab có hỗ trợ content script
-        isTabSupported(tabId).then(supported => {
-            if (!supported) {
-                console.warn(`Tab ${tabId} không hỗ trợ content script (có thể là chrome:// hoặc extension)`);
-                sendResponse({ success: false, error: 'Trang này không hỗ trợ content script. Hãy thử với trang web thông thường.' });
+        // Thử inject content script
+        await chrome.scripting.executeScript({
+            target: { tabId },
+            files: ['content.js']
+        });
+        
+        console.log(`Đã inject content script vào tab ${tabId} thành công`);
+        
+        // Cơ chế kiểm tra với nhiều lần thử
+        const checkWithRetry = async (remainingAttempts = 5) => {
+            if (remainingAttempts <= 0) {
+                console.warn(`Không thể xác nhận content script đã được tải trong tab ${tabId} sau nhiều lần thử`);
+                sendResponse({ success: false, error: 'Không thể xác nhận content script đã được tải' });
                 return;
             }
             
-            // Kiểm tra trước nếu content script đã được tải
-            checkContentScriptStatus(tabId).then(isLoaded => {
+            // Kiểm tra xác nhận content script đã được tải
+            try {
+                const isLoaded = await checkContentScriptStatus(tabId);
+                
                 if (isLoaded) {
-                    console.log(`Content script đã được tải vào tab ${tabId}`);
+                    console.log(`Xác nhận content script đã được tải trong tab ${tabId}`);
                     injectedTabs.add(tabId);
                     sendResponse({ success: true });
+                    
+                    // Thêm vào danh sách tab hoạt động
+                    contentScriptTabs.set(tabId, {
+                        tabId: tabId,
+                        url: '',  // Sẽ được cập nhật sau
+                        lastActivity: Date.now(),
+                        confirmed: true
+                    });
+                    
                     return;
-                }
-            
-            // Nếu chưa tải, inject content script
-            try {
-                chrome.scripting.executeScript({
-                    target: { tabId },
-                    files: ['content.js']
-                })
-                .then(() => {
-                    console.log(`Đã inject content.js vào tab ${tabId}`);
-                    // Thiết lập marker sau khi inject thành công
-                    return setContentScriptLoadedMarker(tabId);
-                })
-                .then(markerSet => {
-                    if (markerSet) {
-                        injectedTabs.add(tabId);
-                        sendResponse({ success: true });
-                    } else {
-                        sendResponse({ success: false, error: 'Không thể thiết lập marker' });
-                    }
-                })
-                .catch((err) => {
-                    console.warn(`Không thể inject content.js: ${err.message}`);
-                    sendResponse({ success: false, error: err.message });
-                });
-            } catch (err) {
-                console.error('Lỗi khi inject script:', err);
-                if (err instanceof Error) {
-                    sendResponse({ success: false, error: err.message });
                 } else {
-                    sendResponse({ success: false, error: 'Lỗi không xác định' });
+                    // Thử thiết lập marker trực tiếp
+                    try {
+                        await setContentScriptLoadedMarker(tabId);
+                    } catch (err) {
+                        console.warn(`Không thể thiết lập marker trực tiếp:`, err);
+                    }
+                    
+                    console.log(`Lần thử ${6 - remainingAttempts}: Chưa tìm thấy marker, thử lại sau ${remainingAttempts <= 2 ? 1000 : 500}ms...`);
+                    setTimeout(() => checkWithRetry(remainingAttempts - 1), remainingAttempts <= 2 ? 1000 : 500);
                 }
+            } catch (error) {
+                console.error(`Lỗi kiểm tra content script (lần thử ${6 - remainingAttempts}):`, error);
+                setTimeout(() => checkWithRetry(remainingAttempts - 1), 500);
             }
-            }).catch(error => {
-                console.error('Lỗi kiểm tra trạng thái content script:', error);
-                sendResponse({ success: false, error: 'Không thể kiểm tra trạng thái content script' });
-            });
-        }).catch(error => {
-            console.error('Lỗi kiểm tra tab hỗ trợ:', error);
-            sendResponse({ success: false, error: 'Không thể kiểm tra tab' });
-        });
-        
-        return true; // Giữ kết nối mở để xử lý bất đồng bộ
-    }
-    
-    // Xử lý các message logging từ content script
-    if (request.action === 'log_xpath_extraction' || request.action === 'log_extraction_summary') {
-        const logData = request.data;
-        // Thêm thông tin về tab
-        if (sender.tab) {
-            logData.tabId = sender.tab.id;
-            logData.tabUrl = sender.tab.url;
-        }
-        
-        // Lưu log vào chrome.storage để hiển thị trong UI
-        const logType = logData.type || 'extraction';
-        const logEntry = {
-            type: logType,
-            message: getLogMessage(logData),
-            data: logData,
-            timestamp: Date.now()
         };
         
-        // Lưu log mới nhất để UI có thể hiển thị
-        chrome.storage.local.set({ 'log_latest': logEntry });
+        // Bắt đầu kiểm tra sau khoảng thời gian cho phép khởi tạo
+        setTimeout(() => checkWithRetry(5), 800);
         
-        // Lưu log vào storage để có thể xem lại sau này
-        chrome.storage.local.get(['xpath_logs'], (result) => {
-            const logs = result.xpath_logs || [];
-            logs.unshift(logEntry); // Thêm log mới vào đầu mảng
-            
-            // Giới hạn số lượng log để tránh quá tải storage
-            if (logs.length > 1000) {
-                logs.length = 1000;
-            }
-            
-            chrome.storage.local.set({ 'xpath_logs': logs });
-        });
-        
-        // Gửi phản hồi
-        sendResponse({ success: true });
-        return true; // Giữ kết nối mở khi xử lý bất đồng bộ
+    } catch (err: any) {
+        console.error(`Lỗi khi inject content script vào tab ${tabId}:`, err);
+        sendResponse({ success: false, error: `Lỗi khi inject content script: ${err?.message || 'Không rõ lỗi'}` });
+    }
+};
+
+// Message handler
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    console.log('Background: NHẬN TIN NHẮN:', request.action, sender?.tab?.id);
+    
+    // Xử lý tin nhắn ping từ content script hoặc popup
+    if (request.action === 'ping') {
+        sendResponse({ success: true, timestamp: Date.now(), from: 'background', pong: true });
+        return true;
     }
     
-    return false;
+    // Xử lý yêu cầu đăng ký tab vào danh sách injectedTabs
+    if (request.action === 'registerTabAsInjected' && request.tabId) {
+        const tabId = request.tabId;
+        console.log(`Background: Đăng ký tab ${tabId} vào danh sách injectedTabs`);        
+        injectedTabs.add(tabId);
+        contentScriptTabs.set(tabId, {
+            tabId: tabId,
+            url: '', // Sẽ được cập nhật sau
+            lastActivity: Date.now(),
+            confirmed: true
+        });
+        sendResponse({ success: true, message: 'Tab đã được đăng ký vào danh sách injectedTabs' });
+        return true;
+    }
+    
+    // Proxy tin nhắn từ popup đến content script
+    if (request.action === 'proxy_to_content_script' && request.tabId && request.proxyRequest) {
+        const tabId = request.tabId;
+        const proxyRequest = request.proxyRequest;
+        
+        console.log(`Background: Proxy tin nhắn "${proxyRequest.action}" tới tab ${tabId}`);
+        
+        // Kiểm tra tab có trong danh sách đã inject
+        if (!injectedTabs.has(tabId)) {
+            console.warn(`Background: Tab ${tabId} chưa được inject content script.`);
+            sendResponse({
+                success: false,
+                error: 'Tab chưa được inject content script'
+            });
+            return true;
+        }
+        
+        try {
+            // Tạo flag kiểm tra xem response đã được gửi hay chưa
+            let hasResponded = false;
+            
+            // Gọi sendMessage tới content script
+            chrome.tabs.sendMessage(tabId, proxyRequest, (response) => {
+                // Đảm bảo chỉ gọi sendResponse một lần
+                if (hasResponded) return;
+                hasResponded = true;
+                
+                if (chrome.runtime.lastError) {
+                    console.error('Background: Lỗi proxy tin nhắn:', chrome.runtime.lastError);
+                    try {
+                        sendResponse({
+                            success: false, 
+                            error: chrome.runtime.lastError.message,
+                            from: 'background_proxy'
+                        });
+                    } catch (responseErr) {
+                        console.error('Không thể gửi phản hồi:', responseErr);
+                    }
+                    return;
+                }
+                
+                console.log('Background: Phản hồi từ content script:', response);
+                try {
+                    sendResponse({
+                        success: true,
+                        data: response,
+                        from: 'background_proxy'
+                    });
+                } catch (responseErr) {
+                    console.error('Không thể gửi phản hồi:', responseErr);
+                }
+            });
+            
+            // Đặt timeout dự phòng nếu content script không trả lời
+            setTimeout(() => {
+                if (!hasResponded) {
+                    hasResponded = true;
+                    try {
+                        sendResponse({
+                            success: false,
+                            error: 'Timeout: Content script không trả lời trong thời gian cho phép',
+                            from: 'background_proxy'
+                        });
+                    } catch (timeoutErr) {
+                        console.error('Không thể gửi phản hồi timeout:', timeoutErr);
+                    }
+                }
+            }, 5000);
+            
+            return true; // QUAN TRỌNG: Giữ kết nối mở để xử lý bất đồng bộ
+        } catch (err) {
+            console.error('Background: Lỗi gọi proxy:', err);
+            sendResponse({
+                success: false,
+                error: err instanceof Error ? err.message : 'Lỗi không xác định',
+                from: 'background_proxy'
+            });
+            return true;
+        }
+    }
+
+    // Xử lý tin nhắn keepAlive từ content script
+    if (request.action === 'keepAlive') {
+        if (sender.tab && sender.tab.id) {
+            const tabId = sender.tab.id;
+            const url = sender.tab.url || request.url || '';
+            
+            contentScriptTabs.set(tabId, {
+                tabId,
+                url,
+                lastActivity: Date.now(),
+                confirmed: true
+            });
+            
+            // Đảm bảo tab này cũng có trong danh sách injectedTabs
+            injectedTabs.add(tabId);
+            
+            console.log(`Content script trong tab ${tabId} vẫn hoạt động.`);
+        }
+        
+        sendResponse({ success: true });
+        return true;
+    }
+
+    // Xử lý thông báo content script đã tải
+    if (request.action === 'contentScriptLoaded') {
+        if (sender.tab && sender.tab.id) {
+            const tabId = sender.tab.id;
+            
+            injectedTabs.add(tabId);
+            contentScriptTabs.set(tabId, {
+                tabId,
+                url: sender.tab.url || '',
+                lastActivity: Date.now(),
+                confirmed: true
+            });
+            
+            console.log(`Content script loaded in tab ${tabId}`);
+            sendResponse({ success: true });
+        }
+        return true;
+    }
+    
+    // Xử lý yêu cầu inject content script từ popup hoặc background
+    if (request.action === 'injectContentScript') {
+        const targetTabId = request.tabId;
+        const force = request.force === true;
+        
+        if (!targetTabId) {
+            sendResponse({ success: false, error: 'Không có tab ID hợp lệ' });
+            return true;
+        }
+        
+        console.log(`Yêu cầu inject cho tab ${targetTabId} (force=${force})`);
+        
+        // Kiểm tra xem tab đã được inject chưa
+        if (!force && injectedTabs.has(targetTabId)) {
+            console.log(`Tab ${targetTabId} đã được inject rồi. Trả về thành công ngay.`);
+            sendResponse({ success: true });
+            return true;
+        }
+        
+        // Inject content script và theo dõi kết quả
+        executeContentScriptInject(targetTabId, sendResponse);
+        return true;
+    }
+    
+    return false; // Không xử lý tin nhắn
 });
 
 // Helper function để tạo message thích hợp cho mỗi loại log
-function getLogMessage(logData: any): string {
+// @ts-ignore: Temporarily unused but will be needed later
+function _getLogMessage(logData: any): string {
     switch (logData.type) {
         case 'xpath':
             return `[XPath] Trích xuất thành công: ${logData.description || logData.field} = ${logData.value}`;

@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Box, Text, Button, Loader, Paper, Group, ThemeIcon, Card, List, ScrollArea, 
-         ActionIcon, Tooltip, Badge, Kbd, Checkbox, CopyButton, Divider, Stack } from '@mantine/core';
+         Badge, Kbd, Checkbox, CopyButton, Divider, Stack } from '@mantine/core';
 import { IconSalad, IconAlertCircle, IconCheck, IconChevronRight, 
-         IconCopy, IconKeyboard, IconSettings, IconInfoCircle } from '@tabler/icons-react';
-import { useHotkeys } from '@mantine/hooks';
+         IconCopy } from '@tabler/icons-react';
+import { useHotkeys, useOs } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import { trustedSources } from '../../config/trustedSources';
 import type { NutritionData } from '../../types';
@@ -204,67 +204,142 @@ const ExtractTab: React.FC<ExtractTabProps> = ({
     }
   }, [data, hotkeysActivated]);
   
-  // Kiểm tra trạng thái của content script
-  const checkContentScriptStatus = useCallback(() => {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      const activeTabId = tabs[0]?.id;
-      if (!activeTabId) {
-        notifications.show({
-          title: 'Không tìm thấy tab hiện tại',
-          message: 'Không thể xác định tab đang hoạt động',
-          color: 'red'
-        });
-        return;
-      }
-
-      // Hiển thị URL hiện tại để debug
-      console.log('Kiểm tra content script cho tab:', tabs[0].url);
-      
-      // Sử dụng chrome.scripting API thay vì executeScript (đã deprecated)
-      chrome.scripting.executeScript({
-        target: { tabId: activeTabId },
-        func: () => {
-          return document.documentElement.hasAttribute('data-nutrition-crawl-loaded');
-        }
-      }).then(results => {
-        const isLoaded = results[0]?.result === true;
-        
-        if (isLoaded) {
-          notifications.show({
-            title: 'Content script OK',
-            message: 'Content script đã được tải vào trang này. Có thể dùng các tính năng trích xuất.',
-            color: 'green'
-          });
-        } else {
-          // Thử inject script nếu chưa được tải
-          chrome.runtime.sendMessage(
-            { action: 'injectContentScript', tabId: activeTabId },
-            (response) => {
-              if (response?.success) {
-                notifications.show({
-                  title: 'Content script OK',
-                  message: 'Content script đã được tải thành công. Giờ bạn có thể trích xuất dữ liệu.',
-                  color: 'green'
-                });
-              } else {
-                notifications.show({
-                  title: 'Content script chưa sẵn sàng',
-                  message: 'Không thể tải content script. Hãy tải lại trang (F5) và thử lại.',
-                  color: 'orange'
-                });
-              }
-            }
-          );
-        }
-      }).catch(error => {
-        console.error('Lỗi kiểm tra content script:', error);
-        notifications.show({
-          title: 'Không thể kiểm tra',
-          message: `Lỗi: ${error.message || 'không xác định'}. Có thể cần cấp quyền hoặc trang không hỗ trợ.`,
-          color: 'red'
-        });
+  // Hàm chuẩn bị kết nối với content script trước khi trích xuất
+  const prepareForExtraction = useCallback(async () => {
+    try {
+      // Hiển thị thông báo đang chuẩn bị
+      notifications.show({
+        id: 'preparation-status',
+        title: 'Đang chuẩn bị content script...',
+        message: 'Vui lòng đợi trong giây lát',
+        loading: true,
+        autoClose: false,
+        color: 'blue'
       });
-    });
+      
+      // Lấy tab hiện tại
+      const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      const activeTabId = activeTab?.id;
+      
+      if (!activeTabId) {
+        throw new Error('Không tìm thấy tab đang hoạt động');
+      }
+      
+      // LUÔN inject content script trước khi làm bất cứ điều gì khác
+      notifications.update({
+        id: 'preparation-status',
+        loading: true,
+        message: 'Đang tiêm content script...',
+      });
+      
+      // Gọi background script để inject
+      const injectResult = await new Promise<{success: boolean, error?: string}>(resolve => {
+        chrome.runtime.sendMessage(
+          { action: 'injectContentScript', tabId: activeTabId, force: true },
+          response => {
+            if (chrome.runtime.lastError) {
+              console.error('Lỗi inject:', chrome.runtime.lastError.message);
+              resolve({ success: false, error: chrome.runtime.lastError.message });
+              return;
+            }
+            resolve(response || { success: false, error: 'Không nhận được phản hồi' });
+          }
+        );
+      });
+      
+      console.log('Kết quả inject:', injectResult);
+      
+      if (!injectResult.success) {
+        notifications.hide('preparation-status');
+        notifications.show({
+          title: 'Không thể tải content script',
+          message: injectResult.error || 'Lỗi không xác định khi tải content script',
+          color: 'red'
+        });
+        return false;
+      }
+      
+      // Đợi một chút để content script khởi động hoàn tất
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Kiểm tra xem content script đã được tải đúng cách chưa
+      const scriptResult = await chrome.scripting.executeScript({
+        target: { tabId: activeTabId },
+        func: () => document.documentElement.hasAttribute('data-nutrition-crawl-loaded')
+      });
+      
+      const isContentScriptLoaded = scriptResult[0]?.result === true;
+      console.log('Content script đã được tải:', isContentScriptLoaded);
+      
+      if (!isContentScriptLoaded) {
+        throw new Error('Content script không được tải đúng cách. Thử tải lại trang và thử lại.');
+      }
+      
+      // Sử dụng cơ chế proxy qua background script để kiểm tra kết nối
+      console.log('Kiểm tra kết nối với content script qua background proxy...');
+      
+      try {
+        // Gửi ping qua background để proxy tới content script
+        const pingResult = await Promise.race([
+          new Promise<{success: boolean, data?: any, error?: string}>(resolve => {
+            // Yêu cầu background script proxy tin nhắn tới content script
+            chrome.runtime.sendMessage(
+              { 
+                action: 'proxy_to_content_script', 
+                tabId: activeTabId,
+                proxyRequest: { action: 'ping' }
+              },
+              response => {
+                if (chrome.runtime.lastError) {
+                  console.error('Lỗi proxy ping:', chrome.runtime.lastError.message);
+                  resolve({ success: false, error: chrome.runtime.lastError.message });
+                  return;
+                }
+                resolve(response || { success: false, error: 'Không nhận được phản hồi từ background' });
+              }
+            );
+          }),
+          new Promise<{success: boolean, error: string}>(resolve => 
+            setTimeout(() => resolve({ success: false, error: 'Hết thời gian chờ phản hồi' }), 3000)
+          )
+        ]);
+        
+        console.log('Kết quả ping qua proxy:', pingResult);
+        
+        if (!pingResult.success) {
+          throw new Error(pingResult.error || 'Không thể liên lạc với content script');
+        }
+      } catch (err) {
+        console.error('Lỗi kết nối với content script:', err);
+        notifications.hide('preparation-status');
+        notifications.show({
+          title: 'Lỗi kết nối',
+          message: 'Không thể kết nối với content script. Hãy tải lại trang và thử lại.',
+          color: 'red'
+        });
+        return false;
+      }
+      
+      // Hoàn tất chuẩn bị
+      notifications.hide('preparation-status');
+      notifications.show({
+        title: 'Kết nối thành công',
+        message: 'Content script đã sẵn sàng cho trích xuất dữ liệu',
+        color: 'green',
+        autoClose: true
+      });
+      
+      return true;
+    } catch (error) {
+      console.error('Lỗi trong quá trình chuẩn bị:', error);
+      notifications.hide('preparation-status');
+      notifications.show({
+        title: 'Lỗi chuẩn bị',
+        message: error instanceof Error ? error.message : 'Lỗi không xác định',
+        color: 'red'
+      });
+      return false;
+    }
   }, []);
   
   // Kích hoạt trích xuất (Ctrl+Alt+B) - HOT KEY CHÍNH
@@ -343,11 +418,28 @@ const ExtractTab: React.FC<ExtractTabProps> = ({
     }
   }, [handleExtraction]);
   
-  // Đăng ký các hotkey
+  // Phát hiện hệ điều hành của người dùng để hiển thị hướng dẫn phím tắt phù hợp
+  const os = useOs();
+  const isMacOS = os === 'macos';
+  
+  // Đăng ký các hotkey (hỗ trợ cả Windows và macOS)
+  // Trên Windows: Ctrl+Alt+Key
+  // Trên macOS: ⌘ Command+Shift+Key (để tránh xung đột với Chrome)
   useHotkeys([
+    // Bôi vàng các thành phần dinh dưỡng
     ['mod+alt+N', handleHighlightElements],
+    ['ctrl+alt+N', handleHighlightElements], // Windows
+    ['meta+shift+N', handleHighlightElements], // macOS - Command+Shift+N
+    
+    // Sao chép dữ liệu dinh dưỡng
     ['mod+alt+M', handleCopyNutritionData],
+    ['ctrl+alt+M', handleCopyNutritionData], // Windows
+    ['meta+shift+M', handleCopyNutritionData], // macOS - Command+Shift+M
+    
+    // Kích hoạt trích xuất
     ['mod+alt+B', handleActivateExtraction],
+    ['ctrl+alt+B', handleActivateExtraction], // Windows
+    ['meta+shift+B', handleActivateExtraction], // macOS - Command+Shift+B
   ]);
   return (
     <ScrollArea h={300} type="auto" scrollbarSize={6} scrollHideDelay={1000}>
@@ -363,20 +455,27 @@ const ExtractTab: React.FC<ExtractTabProps> = ({
                   Đã phát hiện nguồn tin cậy: <Badge color="green">{detectedSource}</Badge>
                 </Text>
                 <Text size="xs" c="dimmed">
-                  Sử dụng các phím tắt để trích xuất thông tin.
+                  Sử dụng phím tắt để trích xuất nhanh thông tin dinh dưỡng
                 </Text>
               </Box>
             </Group>
           </Paper>
         )}
 
+
+        
         <Text size="sm" c="dimmed" mb="md" ta="center">
           Nhấn nút bên dưới để trích xuất dữ liệu dinh dưỡng từ trang web hiện tại.
         </Text>
         
         <Group gap="xs">
           <Button
-            onClick={() => handleExtraction()}
+            onClick={async () => {
+              const ready = await prepareForExtraction();
+              if (ready) {
+                handleExtraction();
+              }
+            }}
             disabled={loading}
             loading={loading}
             fullWidth
@@ -386,50 +485,6 @@ const ExtractTab: React.FC<ExtractTabProps> = ({
             leftSection={loading ? <Loader size={18} /> : <IconSalad size={18} />}
           >
             {loading ? 'Đang trích xuất...' : 'Trích xuất dữ liệu dinh dưỡng'}
-          </Button>
-          
-          <Tooltip label="Cài đặt trích xuất">
-            <ActionIcon 
-              size="lg" 
-              variant="default" 
-              onClick={() => setActiveTab('settings')}
-              disabled={loading}
-            >
-              <IconSettings size="1.1rem" />
-            </ActionIcon>
-          </Tooltip>
-        </Group>
-        
-        <Group justify="space-between" mt="xs">
-          <Stack gap={0}>
-            <Tooltip label="Bôi vàng các phần tử dinh dưỡng">
-              <Group gap="xs">
-                <IconKeyboard size="0.9rem" stroke={1.5} color="gray" />
-                <Text size="xs" c="dimmed"><Kbd>Ctrl</Kbd>+<Kbd>Alt</Kbd>+<Kbd>N</Kbd></Text>
-              </Group>
-            </Tooltip>
-            <Tooltip label="Sao chép dữ liệu dinh dưỡng">
-              <Group gap="xs">
-                <IconKeyboard size="0.9rem" stroke={1.5} color="gray" />
-                <Text size="xs" c="dimmed"><Kbd>Ctrl</Kbd>+<Kbd>Alt</Kbd>+<Kbd>M</Kbd></Text>
-              </Group>
-            </Tooltip>
-            <Tooltip label="Kích hoạt trích xuất (Bắc buộc phải nhấn trước)">
-              <Group gap="xs">
-                <IconKeyboard size="0.9rem" stroke={1.5} color="gray" />
-                <Text size="xs" c="dimmed" fw={700} style={{ color: '#e74c3c' }}><Kbd>Ctrl</Kbd>+<Kbd>Alt</Kbd>+<Kbd>B</Kbd></Text>
-              </Group>
-            </Tooltip>
-          </Stack>
-          
-          <Button 
-            variant="subtle" 
-            size="xs"
-            onClick={checkContentScriptStatus}
-            leftSection={<IconInfoCircle size="0.8rem" stroke={1.5} />}
-            style={{ backgroundColor: 'transparent' }}
-          >
-            Kiểm tra kết nối
           </Button>
         </Group>
 
@@ -501,13 +556,23 @@ const ExtractTab: React.FC<ExtractTabProps> = ({
         )}
         
         <Card withBorder mt="lg" p="md" style={{ backgroundColor: '#F9FAFB' }}>
-          <Text size="sm" fw={500} mb="xs">Hướng dẫn sử dụng</Text>
+          <Text size="sm" fw={500} mb="xs">Hướng dẫn sử dụng phím tắt</Text>
           <Divider my="xs" />
           <List size="xs" spacing="xs" c="dimmed">
             <List.Item icon={<Text c="blue">1</Text>}>Truy cập trang có thông tin dinh dưỡng</List.Item>
-            <List.Item icon={<Text c="blue">2</Text>}>Nhấn phím tắt <Kbd fw={700} style={{ color: '#e74c3c' }}>Ctrl</Kbd>+<Kbd fw={700} style={{ color: '#e74c3c' }}>Alt</Kbd>+<Kbd fw={700} style={{ color: '#e74c3c' }}>B</Kbd> để kích hoạt trích xuất</List.Item>
-            <List.Item icon={<Text c="blue">3</Text>}>Dùng <Kbd>Ctrl</Kbd>+<Kbd>Alt</Kbd>+<Kbd>N</Kbd> để bôi vàng phần tử dinh dưỡng</List.Item>
-            <List.Item icon={<Text c="blue">4</Text>}>Dùng <Kbd>Ctrl</Kbd>+<Kbd>Alt</Kbd>+<Kbd>M</Kbd> để sao chép dữ liệu</List.Item>
+            {isMacOS ? (
+              <>
+                <List.Item icon={<Text c="blue">2</Text>}>Nhấn phím tắt <Kbd fw={700} style={{ color: '#e74c3c' }}>⌘</Kbd>+<Kbd fw={700} style={{ color: '#e74c3c' }}>Shift</Kbd>+<Kbd fw={700} style={{ color: '#e74c3c' }}>B</Kbd> để kích hoạt trích xuất</List.Item>
+                <List.Item icon={<Text c="blue">3</Text>}>Dùng <Kbd>⌘</Kbd>+<Kbd>Shift</Kbd>+<Kbd>N</Kbd> để bôi vàng phần tử dinh dưỡng</List.Item>
+                <List.Item icon={<Text c="blue">4</Text>}>Dùng <Kbd>⌘</Kbd>+<Kbd>Shift</Kbd>+<Kbd>M</Kbd> để sao chép dữ liệu</List.Item>
+              </>
+            ) : (
+              <>
+                <List.Item icon={<Text c="blue">2</Text>}>Nhấn phím tắt <Kbd fw={700} style={{ color: '#e74c3c' }}>Ctrl</Kbd>+<Kbd fw={700} style={{ color: '#e74c3c' }}>Alt</Kbd>+<Kbd fw={700} style={{ color: '#e74c3c' }}>B</Kbd> để kích hoạt trích xuất</List.Item>
+                <List.Item icon={<Text c="blue">3</Text>}>Dùng <Kbd>Ctrl</Kbd>+<Kbd>Alt</Kbd>+<Kbd>N</Kbd> để bôi vàng phần tử dinh dưỡng</List.Item>
+                <List.Item icon={<Text c="blue">4</Text>}>Dùng <Kbd>Ctrl</Kbd>+<Kbd>Alt</Kbd>+<Kbd>M</Kbd> để sao chép dữ liệu</List.Item>
+              </>
+            )}
             <List.Item icon={<Text c="blue">5</Text>}>Hoặc nhấp nút "Trích xuất dữ liệu dinh dưỡng"</List.Item>
           </List>
           

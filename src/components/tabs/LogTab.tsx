@@ -9,7 +9,8 @@ import {
   Stack,
   Code,
   ActionIcon,
-  Tooltip
+  Tooltip,
+  Box
 } from '@mantine/core';
 import { IconRefresh, IconTrash, IconDownload } from '@tabler/icons-react';
 import { useLogStore, type LogEntry } from '../../store/logStore';
@@ -149,63 +150,67 @@ const LogTab: React.FC<LogTabProps> = () => {
   const errorLogCount = logs.filter(log => log.type === 'error').length;
 
   return (
-    <Card withBorder radius="md" p="md" bg="white">
-      <Card.Section py="md" px="md">
-        <Group justify="space-between">
-          <Text fw={500}>Log Hoạt Động</Text>
-          <Group gap="xs">
-            <Tooltip label="Làm mới">
-              <ActionIcon onClick={() => setUpdatedAt(new Date())}>
-                <IconRefresh size={18} />
-              </ActionIcon>
-            </Tooltip>
-            <Tooltip label="Xóa tất cả log">
-              <ActionIcon color="red" onClick={clearLogs}>
-                <IconTrash size={18} />
-              </ActionIcon>
-            </Tooltip>
-            <Tooltip label="Xuất log ra file">
-              <ActionIcon color="blue" onClick={exportLogs}>
-                <IconDownload size={18} />
-              </ActionIcon>
-            </Tooltip>
+    <Box style={{ height: '350px', overflow: 'hidden', padding: '0 4px' }}>
+      <ScrollArea style={{ height: '100%' }} type="auto" scrollbarSize={6} scrollHideDelay={2500}>
+        <Card withBorder radius="md" p="md" bg="white" mb="md">
+          <Card.Section py="md" px="md">
+            <Group justify="space-between">
+              <Text fw={500}>Log Hoạt Động</Text>
+              <Group gap="xs">
+                <Tooltip label="Làm mới">
+                  <ActionIcon onClick={() => setUpdatedAt(new Date())}>
+                    <IconRefresh size={18} />
+                  </ActionIcon>
+                </Tooltip>
+                <Tooltip label="Xóa tất cả log">
+                  <ActionIcon color="red" onClick={clearLogs}>
+                    <IconTrash size={18} />
+                  </ActionIcon>
+                </Tooltip>
+                <Tooltip label="Xuất log ra file">
+                  <ActionIcon color="blue" onClick={exportLogs}>
+                    <IconDownload size={18} />
+                  </ActionIcon>
+                </Tooltip>
+              </Group>
+            </Group>
+          </Card.Section>
+
+          <Tabs value={activeTab} onChange={setActiveTab}>
+            <Tabs.List>
+              <Tabs.Tab value="url" leftSection={<Badge size="xs" p={0} color="blue">{urlLogCount}</Badge>}>
+                URL
+              </Tabs.Tab>
+              <Tabs.Tab value="xpath" leftSection={<Badge size="xs" p={0} color="green">{xpathLogCount}</Badge>}>
+                XPath
+              </Tabs.Tab>
+              <Tabs.Tab value="extraction" leftSection={<Badge size="xs" p={0} color="orange">{extractionLogCount}</Badge>}>
+                Trích xuất
+              </Tabs.Tab>
+              <Tabs.Tab value="error" leftSection={<Badge size="xs" p={0} color="red">{errorLogCount}</Badge>}>
+                Lỗi
+              </Tabs.Tab>
+              <Tabs.Tab value="all">
+                Tất cả
+              </Tabs.Tab>
+            </Tabs.List>
+
+            <Box mt="md">
+              {renderLogs()}
+            </Box>
+          </Tabs>
+          
+          <Group justify="space-between" mt="md">
+            <Text size="xs" c="dimmed">
+              Cập nhật lần cuối: {updatedAt.toLocaleTimeString('vi-VN')}
+            </Text>
+            <Text size="xs" c="dimmed">
+              Tổng số log: {logs.length}
+            </Text>
           </Group>
-        </Group>
-      </Card.Section>
-
-      <Tabs value={activeTab} onChange={setActiveTab}>
-        <Tabs.List>
-          <Tabs.Tab value="url" leftSection={<Badge size="xs" p={0} color="blue">{urlLogCount}</Badge>}>
-            URL
-          </Tabs.Tab>
-          <Tabs.Tab value="xpath" leftSection={<Badge size="xs" p={0} color="green">{xpathLogCount}</Badge>}>
-            XPath
-          </Tabs.Tab>
-          <Tabs.Tab value="extraction" leftSection={<Badge size="xs" p={0} color="orange">{extractionLogCount}</Badge>}>
-            Trích xuất
-          </Tabs.Tab>
-          <Tabs.Tab value="error" leftSection={<Badge size="xs" p={0} color="red">{errorLogCount}</Badge>}>
-            Lỗi
-          </Tabs.Tab>
-          <Tabs.Tab value="all">
-            Tất cả
-          </Tabs.Tab>
-        </Tabs.List>
-
-        <ScrollArea h={350} scrollbarSize={6} type="auto" scrollHideDelay={2500} mt="md">
-          {renderLogs()}
-        </ScrollArea>
-      </Tabs>
-      
-      <Group justify="space-between" mt="md">
-        <Text size="xs" c="dimmed">
-          Cập nhật lần cuối: {updatedAt.toLocaleTimeString('vi-VN')}
-        </Text>
-        <Text size="xs" c="dimmed">
-          Tổng số log: {logs.length}
-        </Text>
-      </Group>
-    </Card>
+        </Card>
+      </ScrollArea>
+    </Box>
   );
 };
 

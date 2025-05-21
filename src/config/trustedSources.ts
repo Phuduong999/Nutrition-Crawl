@@ -44,5 +44,9 @@ export const trustedSources: Record<string, SiteConfig> = {
     "nutritionix.com": {
         nutritionXPath: '//*[@class="label-container"]',
         altXPath: '//div[@class="nf"]'
+    },
+    "woolworths.com.au": {
+        nutritionXPath: '//div[contains(@class, "nutritional-info_component_nutritional-info-panel")]',
+        altXPath: '//div[class*="nutritional-info-panel"]'
     }
 };

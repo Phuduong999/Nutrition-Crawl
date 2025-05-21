@@ -25,18 +25,19 @@ export type { NutritionData };
 // Interface cho tính năng Excel Import
 export interface ExcelRow {
   url: string;              // Từ cột F (trusted source)
+  originalData?: Record<string, any>; // Giữ nguyên dữ liệu gốc từ Excel
   extractedData: {
     // Các trường dữ liệu mapping với cột K-T
-    columnK: string | null;
-    columnL: string | null;
-    columnM: string | null;
-    columnN: string | null;
-    columnO: string | null;
-    columnP: string | null;
-    columnQ: string | null;
-    columnR: string | null;
-    columnS: string | null;
-    columnT: string | null;
+    columnK: string | null; // Protein (cột K)
+    columnL: string | null; // Carb (cột L)
+    columnM: string | null; // Fat (cột M)
+    columnN: string | null; // Calo (cột N)
+    columnO: string | null; // Fiber (cột O)
+    columnP: string | null; // Sugar (cột P)
+    columnQ: string | null; // Cholesterol (cột Q)
+    columnR: string | null; // Saturated Fat (cột R)
+    columnS: string | null; // Canxi (cột S)
+    columnT: string | null; // Iron (cột T)
     [key: string]: string | null;
   };
   status: 'pending' | 'processing' | 'completed' | 'failed';

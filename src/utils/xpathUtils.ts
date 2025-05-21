@@ -1,4 +1,4 @@
-import { defaultXPathMappings, nutritionixXPathMappings, eatThisMuchXPathMappings } from '../config/xpathMapping';
+import { defaultXPathMappings, nutritionixXPathMappings, eatThisMuchXPathMappings, accordionXPathMappings } from '../config/xpathMapping';
 import { logger } from '../store/logStore';
 import { getTrustedDomain } from './urlUtils';
 import type { XPathMapping } from '../types';
@@ -26,6 +26,13 @@ export const getXPathConfigForUrl = (url: string): XPathMapping[] => {
         // Sử dụng cấu hình XPath riêng cho eatthismuch.com
         const config = [...eatThisMuchXPathMappings];
         logger.url(`Áp dụng ${config.length} XPath cho EatThisMuch`, {
+          sample: config.slice(0, 3).map(x => ({ field: x.field, xpath: x.xpath }))
+        });
+        return config;
+      } else if (domain === 'woolworths.com.au') {
+        // Sử dụng cấu hình XPath riêng cho woolworths.com.au
+        const config = [...accordionXPathMappings];
+        logger.url(`Áp dụng ${config.length} XPath cho Woolworths`, {
           sample: config.slice(0, 3).map(x => ({ field: x.field, xpath: x.xpath }))
         });
         return config;
@@ -75,13 +82,16 @@ export const createXPathExtractionScript = () => {
             const element = elements.snapshotItem(0) as HTMLElement;
             let rawValue = element.textContent?.trim() || null;
             
-            // Xử lý làm sạch giá trị được trích xuất
+            // Xử lý làm sạch giá trị được trích xuất để chỉ lấy số
             if (rawValue) {
-              // Tách số và đơn vị
-              const valueMatch = rawValue.match(/([\d\.]+)\s*([a-zA-Z%]*)/);
-              if (valueMatch) {
-                // Chỉ lấy giá trị số và đơn vị
-                rawValue = valueMatch[0].trim();
+              // Tách số từ giá trị (ví dụ "14g" -> "14")
+              const numericMatch = rawValue.match(/(\d+(\.\d+)?)/);
+              if (numericMatch) {
+                // Chỉ lấy giá trị số
+                rawValue = numericMatch[1];
+              } else {
+                // Nếu không tìm thấy số, giữ nguyên giá trị
+                console.log(`No numeric value found in: ${rawValue}`);
               }
             }
             

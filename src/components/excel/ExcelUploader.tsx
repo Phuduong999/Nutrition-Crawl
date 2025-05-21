@@ -38,22 +38,25 @@ const ExcelUploader: React.FC<ExcelUploaderProps> = ({
       setProcessingProgress(70);
       const jsonData = utils.sheet_to_json(worksheet);
     
-      // Chuyển đổi dữ liệu thành định dạng ExcelRow
+      // Chuyển đổi dữ liệu thành định dạng ExcelRow với giữ nguyên dữ liệu gốc
       const rows: ExcelRow[] = jsonData
         .filter((row: any) => row['trusted source'] && typeof row['trusted source'] === 'string')
         .map((row: any) => ({
+        // Giữ lại dữ liệu gốc để sử dụng khi xuất file Excel
+        originalData: { ...row },
         url: row['trusted source'] || '',  // Cột F
         extractedData: {
-          columnK: null,
-          columnL: null,
-          columnM: null,
-          columnN: null,
-          columnO: null,
-          columnP: null,
-          columnQ: null,
-          columnR: null,
-          columnS: null,
-          columnT: null
+          // Chỉ thêm hoặc thay thế dữ liệu cột K đến T
+          columnK: null, // Protein
+          columnL: null, // Carb
+          columnM: null, // Fat
+          columnN: null, // Calo
+          columnO: null, // Fiber
+          columnP: null, // Sugar
+          columnQ: null, // Cholesterol
+          columnR: null, // Saturated Fat
+          columnS: null, // Canxi
+          columnT: null  // Iron
         },
         status: 'pending'
       }));

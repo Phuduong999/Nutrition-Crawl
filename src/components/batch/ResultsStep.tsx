@@ -20,41 +20,81 @@ const ResultsStep: React.FC<ResultsStepProps> = ({
   const failedCount = processedData.filter(row => row.status === 'failed').length;
   
   const handleExport = () => {
-    // Tạo dữ liệu Excel
-    const exportData = processedData.map(row => {
-      // Tạo object chứa dữ liệu xuất
-      const exportRow: Record<string, any> = {
-        'URL': row.url,
-        'Trạng thái': row.status === 'completed' ? 'Thành công' : 'Thất bại',
-      };
+    try {
+      // Chỉ xuất các hàng có originalData để giữ nguyên cấu trúc
+      const rowsWithOriginalData = processedData.filter(row => row.originalData);
       
-      // Thêm các trường dữ liệu dinh dưỡng
-      Object.entries(row.extractedData).forEach(([field, value]) => {
-        const columnLabel = field.replace('column', 'Cột ');
-        exportRow[columnLabel] = value || 'Không có dữ liệu';
+      if (rowsWithOriginalData.length === 0) {
+        alert('Không có dữ liệu gốc để xuất');
+        return;
+      }
+      
+      // Tạo worksheet từ dữ liệu gốc trước
+      const dataToExport = rowsWithOriginalData.map(row => {
+        return { ...row.originalData };
       });
       
-      return exportRow;
-    });
+      // Tạo workbook và worksheet
+      const wb = utils.book_new();
+      const ws = utils.json_to_sheet(dataToExport);
+      
+      // Chỉ cập nhật các ô cần thiết (K-T) dựa trên address của cell 
+      rowsWithOriginalData.forEach((row, rowIndex) => {
+        if (row.status === 'completed') {
+          // Bắt đầu từ hàng thứ 2 (chỉ số 1 do hàng 0 là header)
+          const rowNum = rowIndex + 2;
+          
+          // Các cột cần cập nhật (K-T)
+          const columnsToUpdate = [
+            { col: 'K', field: 'columnK' }, // Protein
+            { col: 'L', field: 'columnL' }, // Carb
+            { col: 'M', field: 'columnM' }, // Fat
+            { col: 'N', field: 'columnN' }, // Calo
+            { col: 'O', field: 'columnO' }, // Fiber
+            { col: 'P', field: 'columnP' }, // Sugar
+            { col: 'Q', field: 'columnQ' }, // Cholesterol
+            { col: 'R', field: 'columnR' }, // Saturated Fat
+            { col: 'S', field: 'columnS' }, // Canxi
+            { col: 'T', field: 'columnT' }  // Iron
+          ];
+          
+          // Cập nhật từng cột
+          columnsToUpdate.forEach(({ col, field }) => {
+            if (row.extractedData[field]) {
+              // Định vị cell (ví dụ: K2, L2, ...)
+              const cellRef = `${col}${rowNum}`;
+              
+              // Cập nhật cell
+              const cellValue = row.extractedData[field] || '';
+              
+              // Sử dụng phương thức cập nhật cell trực tiếp
+              if (!ws[cellRef]) ws[cellRef] = { t: 's', v: '' };
+              ws[cellRef].v = cellValue;
+            }
+          });
+        }
+      });
+      
+      // Thêm worksheet vào workbook và đặt tên
+      utils.book_append_sheet(wb, ws, 'Nutrition_Data');
     
-    // Tạo workbook và worksheet
-    const ws = utils.json_to_sheet(exportData);
-    const wb = utils.book_new();
-    utils.book_append_sheet(wb, ws, 'Kết quả xử lý');
-    
-    // Tạo file Excel và download
-    const excelBuffer = write(wb, { bookType: 'xlsx', type: 'array' });
-    const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8' });
-    
-    // Tạo URL để download
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `Nutrition_Data_${new Date().toISOString().split('T')[0]}.xlsx`;
-    link.click();
-    
-    // Clean up
-    window.URL.revokeObjectURL(url);
+      // Xuất file Excel
+      const excelBuffer = write(wb, { bookType: 'xlsx', type: 'array' });
+      const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8' });
+      
+      // Tạo URL để download
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Nutrition_Data_${new Date().toISOString().split('T')[0]}.xlsx`;
+      link.click();
+      
+      // Clean up
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Lỗi khi xuất Excel:', error);
+      alert(`Lỗi khi xuất file Excel: ${error instanceof Error ? error.message : 'Lỗi không xác định'}`);
+    }
   };
   
   return (

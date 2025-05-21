@@ -1,18 +1,82 @@
 import type { XPathMapping } from '../types';
 
+// XPath cho thông tin dinh dưỡng Woolworths
+export const accordionXPathMappings: XPathMapping[] = [
+  {
+    field: 'columnK',
+    xpath: '//div[contains(@class, "nutritional-info_component_nutritional-info-panel")]//ul[contains(@class, "nutrition-row")][.//li[contains(text(), "Protein")]]//li[contains(@class, "value")]//span[@aria-hidden="true"][2]',
+    columnIndex: 10,
+    description: 'Protein'
+  },
+  {
+    field: 'columnL',
+    xpath: '//div[contains(@class, "nutritional-info_component_nutritional-info-panel")]//ul[contains(@class, "nutrition-row")][.//li[contains(text(), "Carbohydrate")]]//li[contains(@class, "value")]//span[@aria-hidden="true"][2]',
+    columnIndex: 11,
+    description: 'Carb'
+  },
+  {
+    field: 'columnM',
+    xpath: '//div[contains(@class, "nutritional-info_component_nutritional-info-panel")]//ul[contains(@class, "nutrition-row")][.//li[contains(text(), "Fat, Total")]]//li[contains(@class, "value")]//span[@aria-hidden="true"][2]',
+    columnIndex: 12,
+    description: 'Fat'
+  },
+  {
+    field: 'columnN',
+    xpath: '//div[contains(@class, "nutritional-info_component_nutritional-info-panel")]//ul[contains(@class, "nutrition-row")][.//li[contains(text(), "Energy")]]//li[contains(@class, "value")]//span[@aria-hidden="true"][2]',
+    columnIndex: 13,
+    description: 'Calo'
+  },
+  {
+    field: 'columnO',
+    xpath: '//div[contains(@class, "nutritional-info_component_nutritional-info-panel")]//ul[contains(@class, "nutrition-row")][.//li[contains(text(), "Dietary Fibre")]]//li[contains(@class, "value")]//span[@aria-hidden="true"][2]',
+    columnIndex: 14,
+    description: 'Fiber'
+  },
+  {
+    field: 'columnP',
+    xpath: '//div[contains(@class, "nutritional-info_component_nutritional-info-panel")]//ul[contains(@class, "nutrition-row")][.//li[contains(text(), "Sugars")]]//li[contains(@class, "value")]//span[@aria-hidden="true"][2]',
+    columnIndex: 15,
+    description: 'Sugar'
+  },
+  {
+    field: 'columnQ',
+    xpath: '//div[contains(@class, "nutritional-info_component_nutritional-info-panel")]//ul[contains(@class, "nutrition-row")][.//li[contains(text(), "Sodium")]]//li[contains(@class, "value")]//span[@aria-hidden="true"][2]',
+    columnIndex: 16,
+    description: 'Sodium'
+  },
+  {
+    field: 'columnR',
+    xpath: '//div[contains(@class, "nutritional-info_component_nutritional-info-panel")]//ul[contains(@class, "nutrition-row")][.//li[contains(text(), "Saturated")]]//li[contains(@class, "value")]//span[@aria-hidden="true"][2]',
+    columnIndex: 17,
+    description: 'Saturated Fat'
+  },
+  {
+    field: 'columnS',
+    xpath: '//div[contains(@class, "nutritional-info_component_nutritional-info-panel")]//ul[contains(@class, "nutrition-row")][.//li[contains(text(), "Calcium")]]//li[contains(@class, "value")]//span[@aria-hidden="true"][2]',
+    columnIndex: 18,
+    description: 'Canxi'
+  },
+  {
+    field: 'columnT',
+    xpath: '//div[contains(@class, "nutritional-info_component_nutritional-info-panel")]//ul[contains(@class, "nutrition-row")][.//li[contains(text(), "Iron")]]//li[contains(@class, "value")]//span[@aria-hidden="true"][2]',
+    columnIndex: 19,
+    description: 'Iron'
+  }
+];
+
 // XPath cụ thể cho trang Nutritionix.com
 export const nutritionixXPathMappings: XPathMapping[] = [
   {
     field: 'columnK',
-    xpath: '//span[@itemprop="calories"]',
+    xpath: '//span[@itemprop="proteinContent"]',
     columnIndex: 10,
-    description: 'Calories'
+    description: 'Protein'
   },
   {
     field: 'columnL',
-    xpath: '//span[@itemprop="proteinContent"]',
+    xpath: '//span[@itemprop="carbohydrateContent"]',
     columnIndex: 11,
-    description: 'Protein'
+    description: 'Carb'
   },
   {
     field: 'columnM',
@@ -22,9 +86,9 @@ export const nutritionixXPathMappings: XPathMapping[] = [
   },
   {
     field: 'columnN',
-    xpath: '//span[@itemprop="carbohydrateContent"]',
+    xpath: '//span[@itemprop="calories"]',
     columnIndex: 13,
-    description: 'Carbs'
+    description: 'Calo'
   },
   {
     field: 'columnO',
@@ -40,27 +104,27 @@ export const nutritionixXPathMappings: XPathMapping[] = [
   },
   {
     field: 'columnQ',
-    xpath: '//span[@itemprop="addedSugarContent"] | //div[contains(text(),"Added Sugars")]/following-sibling::div[1]',
-    columnIndex: 16,
-    description: 'Added Sugar'
-  },
-  {
-    field: 'columnR',
     xpath: '//span[@itemprop="cholesterolContent"]',
-    columnIndex: 17,
+    columnIndex: 16,
     description: 'Cholesterol'
   },
   {
+    field: 'columnR',
+    xpath: '//span[@itemprop="saturatedFatContent"]',
+    columnIndex: 17,
+    description: 'Saturated Fat'
+  },
+  {
     field: 'columnS',
-    xpath: '//span[@itemprop="sodiumContent"]',
+    xpath: '//span[@itemprop="calciumContent"] | //div[contains(text(),"Calcium")]/following-sibling::div[1]',
     columnIndex: 18,
-    description: 'Sodium'
+    description: 'Canxi'
   },
   {
     field: 'columnT',
-    xpath: '//span[@itemprop="saturatedFatContent"]',
+    xpath: '//span[@itemprop="ironContent"] | //div[contains(text(),"Iron")]/following-sibling::div[1]',
     columnIndex: 19,
-    description: 'Saturated Fat'
+    description: 'Iron'
   }
 ];
 
@@ -68,15 +132,15 @@ export const nutritionixXPathMappings: XPathMapping[] = [
 export const eatThisMuchXPathMappings: XPathMapping[] = [
   {
     field: 'columnK',
-    xpath: '//*[contains(@class, "facts svelte")]//tr[contains(@class, "calories")]/td[1]',
+    xpath: '//*[contains(@class, "facts svelte")]//tr[th[contains(text(), "Protein")]]/td[1]',
     columnIndex: 10,
-    description: 'Calories'
+    description: 'Protein'
   },
   {
     field: 'columnL',
-    xpath: '//*[contains(@class, "facts svelte")]//tr[th[contains(text(), "Protein")]]/td[1]',
+    xpath: '//*[contains(@class, "facts svelte")]//tr[th[contains(text(), "Carbs")]]/td[1]',
     columnIndex: 11,
-    description: 'Protein'
+    description: 'Carb'
   },
   {
     field: 'columnM',
@@ -86,9 +150,9 @@ export const eatThisMuchXPathMappings: XPathMapping[] = [
   },
   {
     field: 'columnN',
-    xpath: '//*[contains(@class, "facts svelte")]//tr[th[contains(text(), "Carbs")]]/td[1]',
+    xpath: '//*[contains(@class, "facts svelte")]//tr[contains(@class, "calories")]/td[1]',
     columnIndex: 13,
-    description: 'Carbs'
+    description: 'Calo'
   },
   {
     field: 'columnO',
@@ -104,27 +168,27 @@ export const eatThisMuchXPathMappings: XPathMapping[] = [
   },
   {
     field: 'columnQ',
-    xpath: '//*[contains(@class, "facts svelte")]//tr[th[contains(text(), "Added Sugar")]]/td[1]',
-    columnIndex: 16,
-    description: 'Added Sugar'
-  },
-  {
-    field: 'columnR',
     xpath: '//*[contains(@class, "facts svelte")]//tr[th[contains(text(), "Cholesterol")]]/td[1]',
-    columnIndex: 17,
+    columnIndex: 16,
     description: 'Cholesterol'
   },
   {
+    field: 'columnR',
+    xpath: '//*[contains(@class, "facts svelte")]//tr[th[contains(text(), "Saturated fats")]]/td[1]',
+    columnIndex: 17,
+    description: 'Saturated Fat'
+  },
+  {
     field: 'columnS',
-    xpath: '//*[contains(@class, "facts svelte")]//tr[th[contains(text(), "Sodium")]]/td[1]',
+    xpath: '//*[contains(@class, "facts svelte")]//tr[th[contains(text(), "Calcium")]]/td[1]',
     columnIndex: 18,
-    description: 'Sodium'
+    description: 'Canxi'
   },
   {
     field: 'columnT',
-    xpath: '//*[contains(@class, "facts svelte")]//tr[th[contains(text(), "Saturated fats")]]/td[1]',
+    xpath: '//*[contains(@class, "facts svelte")]//tr[th[contains(text(), "Iron")]]/td[1]',
     columnIndex: 19,
-    description: 'Saturated Fat'
+    description: 'Iron'
   }
 ];
 
@@ -132,15 +196,15 @@ export const eatThisMuchXPathMappings: XPathMapping[] = [
 export const defaultXPathMappings: XPathMapping[] = [
   {
     field: 'columnK',
-    xpath: '//div[contains(@class, "nutrition-facts")]//div[contains(text(), "Calories")]/following-sibling::div[1]',
+    xpath: '//div[contains(@class, "nutrition-facts")]//div[contains(text(), "Protein")]/following-sibling::div[1]',
     columnIndex: 10, // Cột K (0-indexed là 10)
-    description: 'Calories'
+    description: 'Protein'
   },
   {
     field: 'columnL',
-    xpath: '//div[contains(@class, "nutrition-facts")]//div[contains(text(), "Protein")]/following-sibling::div[1]',
+    xpath: '//div[contains(@class, "nutrition-facts")]//div[contains(text(), "Carbohydrates")]/following-sibling::div[1]',
     columnIndex: 11, // Cột L
-    description: 'Protein'
+    description: 'Carb'
   },
   {
     field: 'columnM',
@@ -150,9 +214,9 @@ export const defaultXPathMappings: XPathMapping[] = [
   },
   {
     field: 'columnN',
-    xpath: '//div[contains(@class, "nutrition-facts")]//div[contains(text(), "Carbs")]/following-sibling::div[1]',
+    xpath: '//div[contains(@class, "nutrition-facts")]//div[contains(text(), "Calories")]/following-sibling::div[1]',
     columnIndex: 13, // Cột N
-    description: 'Carbs'
+    description: 'Calo'
   },
   {
     field: 'columnO',
@@ -168,27 +232,27 @@ export const defaultXPathMappings: XPathMapping[] = [
   },
   {
     field: 'columnQ',
-    xpath: '//div[contains(@class, "nutrition-facts")]//div[contains(text(), "Added Sugar")]/following-sibling::div[1]',
-    columnIndex: 16, // Cột Q
-    description: 'Added Sugar'
-  },
-  {
-    field: 'columnR',
     xpath: '//div[contains(@class, "nutrition-facts")]//div[contains(text(), "Cholesterol")]/following-sibling::div[1]',
-    columnIndex: 17, // Cột R
+    columnIndex: 16, // Cột Q
     description: 'Cholesterol'
   },
   {
+    field: 'columnR',
+    xpath: '//div[contains(@class, "nutrition-facts")]//div[contains(text(), "Saturated Fat")]/following-sibling::div[1]',
+    columnIndex: 17, // Cột R
+    description: 'Saturated Fat'
+  },
+  {
     field: 'columnS',
-    xpath: '//div[contains(@class, "nutrition-facts")]//div[contains(text(), "Sodium")]/following-sibling::div[1]',
+    xpath: '//div[contains(@class, "nutrition-facts")]//div[contains(text(), "Calcium")]/following-sibling::div[1]',
     columnIndex: 18, // Cột S
-    description: 'Sodium'
+    description: 'Canxi'
   },
   {
     field: 'columnT',
-    xpath: '//div[contains(@class, "nutrition-facts")]//div[contains(text(), "Saturated Fat")]/following-sibling::div[1]',
+    xpath: '//div[contains(@class, "nutrition-facts")]//div[contains(text(), "Iron")]/following-sibling::div[1]',
     columnIndex: 19, // Cột T
-    description: 'Saturated Fat'
+    description: 'Iron'
   }
 ];
 

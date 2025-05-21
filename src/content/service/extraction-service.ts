@@ -7,6 +7,7 @@ import { getCurrentDomain, logger, highlightElement } from '../utils';
 import { evaluateAndLogXPath, XPathLogStorage } from '../xpathLogger';
 import { SchemaOrgExtractor } from '../extractors/schema-org-extractor';
 import { HtmlExtractor } from '../extractors/html-extractor';
+import { WoolworthsExtractor } from '../extractors/woolworths-extractor';
 import { trustedSources } from '../../config/trustedSources';
 
 /**
@@ -21,6 +22,7 @@ export class NutritionExtractionService {
    */
   constructor(extractors?: NutritionExtractor[]) {
     this.extractors = extractors || [
+      new WoolworthsExtractor(), // Extractor riêng cho Woolworths
       new SchemaOrgExtractor(),
       new HtmlExtractor() // HTML extractor is the fallback strategy
     ];
